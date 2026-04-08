@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Hardhat files
+/artifacts/
+/cache/
+
+# Environment variables
+.env
+.env.local
+.env*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build outputs
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
