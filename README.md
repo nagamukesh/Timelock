@@ -324,24 +324,3 @@ For improvements, please:
 3. Ensure all tests pass (`npm test`)
 4. Submit a pull request
 
-## Author
-
-**Mukesh** — Blockchain Lab Assignment #7
-
----
-
-## Assignment Status
-
-All Requirements Met:
-- Smart contract implemented with NatSpec
-- Multi-signature approval system
-- Atomic timelock enforcement
-- Prevents early execution
-- Supports post-timelock release
-- emits paymentReleased event
-- 24 comprehensive tests (100% pass)
-- Geth deployment proof ready
-- GitHub repository with README
-- Full documentation
-
-**Last Updated**: April 5, 2026
