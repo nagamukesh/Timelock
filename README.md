@@ -1,5 +1,5 @@
-# Blockchain Lab Assignment - Timelock Payment Contract
-
+# CS468 - Applications of Blockchain Technology 
+## Timelock Payment Contract
 - Hemang J Jamadagni (221CS129)
 - Naga Mukesh (221CS132)
 - Viren H K (221CS165)
