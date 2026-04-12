@@ -1,326 +1,68 @@
-# Timelock Payment Contract
+# Blockchain Lab Assignment - Problem #7: Timelock Payment Contract
 
-A **multi-signature, timelock-based smart contract** for secure, delayed fund transfers on Ethereum. Combines multi-signature approval with mandatory waiting periods to prevent unilateral fund movements and provide a security window for fraud detection.
+- Hemang J Jamadagni (221CS129)
+- Naga Mukesh (221CS132)
+- Viren H K (221CS165)
+- Prabhanjan Prabhu  (221CS234)
 
-## Features
+## Objective
+Ensure that payments cannot be executed immediately even after approvals, enforcing a mandatory waiting period (timelock).
 
-* **Multi-Signature Approval** — Requires N-of-M member signatures before payment processing  
-* **Atomic Timelock Enforcement** — Mandatory delay after quorum, cannot be bypassed  
-* **Double-Vote Prevention** — Each member can approve only once per transaction  
-* **Re-entrancy Protection** — Checks-effects-interactions pattern  
-* **Permissionless Execution** — Anyone can trigger payment after timelock expires  
-* **Full Event Logging** — PaymentProposed, PaymentApproved, TimelockStarted, paymentReleased  
-* **NatSpec Documentation** — Every function fully documented
+## Problem Statement & Requirements
+This project implements a multi-signature smart contract with the following assignment requirements:
+1. Members may propose and approve a payment transaction.
+2. Once the required approvals are obtained, the contract must record a timelock period.
+3. The payment can only be executed if: `currentTime ≥ approvalTime + delayPeriod`.
+4. If execution is attempted before the delay period expires, the contract must reject the transaction.
+5. Expected Output: The transaction executes successfully only after the delay period has passed, triggering a `PaymentReleased` event confirming the transfer.
 
-## Quick Start
+## Technologies Used
+* **Platform:** Ethereum
+* **Language:** Solidity (^0.8.20)
+* **Development Environment:** Remix IDE
+* **Local Blockchain:** Geth (Go Ethereum) Developer Node
 
-### Prerequisites
+## Repository Structure
+* `contracts/TimelockPayment.sol`: The main smart contract source code, fully documented using NatSpec formatting.
+* `Report.pdf`: The final assignment report containing screenshots of the successful deployment, Geth logs, and Remix execution proofs.
 
-- Node.js 18+ 
-- npm or yarn
+---
 
-### Installation
+## Setup & Execution Instructions
 
+The project was built and tested using a minimal Arch Linux setup with a local Geth node and Remix IDE.
+
+### 1. Start the Local Geth Node
+Open your terminal and run the following command to start a local developer network that mines a block every second and accepts connections from Remix:
 ```bash
-git clone <repository-url>
-cd timelock-payment
-npm install
+geth --dev --http --http.api eth,web3,personal,net --http.corsdomain "*" --http.vhosts "*" --dev.period 1
 ```
 
-### Run Tests
+### 2. Compile in Remix IDE
+1. Open https://remix.ethereum.org/.
+2. Load `contracts/TimelockPayment.sol`
+3. Compile using Solidity version 0.8.20.
 
-```bash
-npm test
-```
+### 3. Deploy the Contract
+1. In the Deploy & Run Transactions tab, set the Environment to Dev - Geth Provider (or External HTTP Provider) and connect to http://127.0.0.1:8545.
 
-**Expected output**:
-```
-24 passing (1s)
-All tests pass
-```
+2. Copy 3 pre-funded account addresses from the Remix dropdown to act as the multisig members.
 
-### Compile Contract
+3. Deploy the contract with the following parameters:
 
-```bash
-npm run compile
-```
+ - _members: ["0xAddress1", "0xAddress2", "0xAddress3"]
 
-### Deploy Locally
+ - _requiredApprovals: 2
 
-```bash
-npm run node          # Terminal 1: Start local network
-npm run deploy        # Terminal 2: Deploy contract
-```
+ - _delayPeriod: 120 (seconds)
 
-## Usage Example
+ - Note: Send a small amount of ETH (e.g., 50000000000000000 wei) in the value field during deployment to fund the contract.
 
-```javascript
-// Deploy with 3 members, 2-of-3 multisig, 120-second delay
-const timelock = await TimelockPayment.deploy(
-  ["0xAddr1", "0xAddr2", "0xAddr3"],
-  2,   // requiredApprovals
-  120  // delayPeriod (seconds)
-);
+### 4. Testing the Timelock Workflow
+1. Propose: Call `proposePayment(recipient, amount)` using a member account.
 
-// Propose payment
-await timelock.proposePayment("0xRecipient", ethers.parseEther("1.0"));
+2. Approve: Switch accounts and call `approvePayment(txId)`. Repeat until the required approvals are met. This triggers the `TimelockStarted` event.
 
-// Member 1 approves
-await timelock.approvePayment(0);
+3. Enforcement Check (Rejection): Attempt to call `executePayment(txId)` immediately. The transaction will correctly revert with the error: "Timelock period not yet expired".
 
-// Member 2 approves (quorum reached → timelock starts)
-await timelock.connect(member2).approvePayment(0);
-
-// Wait 120+ seconds...
-await time.increase(121);
-
-// Execute (anyone can call)
-await timelock.executePayment(0);  // Payment released
-```
-
-## Core Functions
-
-| Function | Access | Purpose |
-|----------|--------|---------|
-| `proposePayment(recipient, amount)` | Members | Create payment proposal |
-| `approvePayment(txId)` | Members | Vote to approve (once per member) |
-| `executePayment(txId)` | Anyone | Release funds after timelock expires |
-| `getTimeRemaining(txId)` | Public | Check seconds until execution allowed |
-| `getTransaction(txId)` | Public | Get transaction details |
-| `getContractBalance()` | Public | View contract balance |
-| `deposit()` | Anyone | Send ETH to contract |
-
-## Architecture
-
-```
-┌─────────────────────────────────────────┐
-│      TimelockPayment Contract           │
-├─────────────────────────────────────────┤
-│ State:                                  │
-│  • members[] - Fixed at deployment      │
-│  • requiredApprovals - Quorum threshold │
-│  • delayPeriod - Timelock duration      │
-│  • transactions[] - All proposals       │
-│  • hasApproved[][] - Vote tracking      │
-├─────────────────────────────────────────┤
-│ State Machine:                          │
-│  Propose → (collect approvals)          │
-│         → TimelockStarted (quorum met)  │
-│         → (wait delayPeriod)            │
-│         → Execute → paymentReleased     │
-└─────────────────────────────────────────┘
-```
-
-## Execution Flow
-
-```
-1. Member calls proposePayment()
-   └─ Creates Transaction{recipient, amount, approvalCount: 0}
-   └─ Emits PaymentProposed
-
-2. Members call approvePayment()
-   └─ Increments approvalCount
-   └─ Sets hasApproved[txId][member] = true
-   └─ Emits PaymentApproved
-
-3. Quorum reached (approvalCount == requiredApprovals)
-   └─ Sets approvalTime = block.timestamp
-   └─ Emits TimelockStarted ← TIMELOCK BEGINS
-
-4. Wait delayPeriod seconds...
-   └─ block.timestamp >= approvalTime + delayPeriod
-
-5. Anyone calls executePayment()
-   └─ Checks timelock has expired 
-   └─ Sets executed = true (re-entrancy guard)
-   └─ Transfers ETH to recipient
-   └─ Emits paymentReleased 
-```
-
-## Timelock Enforcement
-
-The heart of the contract — atomic timelock check:
-
-```solidity
-require(
-    block.timestamp >= txn.approvalTime + delayPeriod,
-    "Timelock period not yet expired"
-);
-```
-
-**Key properties**:
-- Uses immutable `block.timestamp` (can't be manipulated)
-- Checked at execution entry (atomic)
-- Cannot be bypassed by calling multiple times
-- Clear revert if premature
-
-## Security Analysis
-
-| Feature | Implementation | Test Coverage |
-|---------|-----------------|---|
-| **Timelock** | `block.timestamp >= approvalTime + delayPeriod` | Tested |
-| **Double-vote prevention** | `hasApproved[txId][member]` mapping | Tested |
-| **Re-entrancy protection** | `executed = true` before transfer | Tested |
-| **Access control** | `onlyMember` modifier | Tested |
-| **Input validation** | Zero-address, amount, balance checks | Tested |
-
-## Test Coverage
-
-**File**: `test/TimelockPayment.test.js`  
-**Total**: 24 tests, 100% pass rate
-
-### Test Breakdown
-
-- **Deployment** (3 tests) — Contract initialization
-- **Proposal** (5 tests) — Creating transactions
-- **Approval** (5 tests) — Member voting
-- **Execution** (6 tests) — Timelock enforcement ← **KEY**
-- **Time Checks** (3 tests) — Remaining time queries
-- **Deposits** (1 test) — ETH transfers
-- **Members** (1 test) — Access control
-
-### Key Test: Timelock Enforcement
-
-```javascript
-// Should reject execution before timelock expires
-it("Should reject execution before timelock expires", async () => {
-    await timelockPayment.approvePayment(0);
-    await timelockPayment.connect(addr1).approvePayment(0);
-    
-    await expect(
-        timelockPayment.executePayment(0)
-    ).to.be.revertedWith("Timelock period not yet expired");
-});
-
-// Should allow execution after timelock expires
-it("Should allow execution after timelock expires", async () => {
-    await timelockPayment.approvePayment(0);
-    await timelockPayment.connect(addr1).approvePayment(0);
-    
-    await time.increase(121);  // Wait > 120 seconds
-    
-    await expect(
-        timelockPayment.executePayment(0)
-    ).to.emit(timelockPayment, "PaymentReleased");
-});
-```
-
-## Gas Costs
-
-| Operation | Gas | Mainnet Cost* |
-|-----------|-----|---------------|
-| Deploy | ~583K | ~$35 |
-| proposePayment | ~60K | ~$3.60 |
-| approvePayment | ~45K | ~$2.70 |
-| executePayment | ~52K | ~$3.12 |
-| **Full cycle** | ~740K | ~$44.42 |
-
-*at 20 gwei, ETH = $3000
-
-**On L2 (Arbitrum/Optimism)**: 50-100x cheaper
-
-## Deployment Instructions
-
-Run tests and deploy locally:
-```bash
-npm test      # Run all tests
-npm run node  # Start local Hardhat network (Terminal 1)
-npm run deploy # Deploy to local network (Terminal 2)
-```
-
-For details on gas costs and state changes, see [timelock_guide.md](timelock_guide.md).
-
-## Project Structure
-
-```
-timelock-payment/
-├── contracts/
-│   └── TimelockPayment.sol              # Main contract (NatSpec documented)
-├── test/
-│   └── TimelockPayment.test.js          # 24 test cases
-├── scripts/
-│   └── deploy.js                        # Deployment script
-├── timelock_guide.md                    # Architecture documentation
-├── hardhat.config.js                    # Hardhat config
-├── package.json                         # Dependencies
-└── README.md                            # This file
-```
-
-## Configuration
-
-Edit `hardhat.config.js` to customize:
-
-```javascript
-module.exports = {
-  solidity: {
-    version: "0.8.20",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200,
-      },
-    },
-  },
-  // Add testnet RPC URLs here for deployment to Sepolia, Goerli, etc.
-};
-```
-
-## Available Commands
-
-```bash
-npm test              # Run all 24 tests
-npm run compile       # Compile contract
-npm run node          # Start local Hardhat network
-npm run deploy        # Deploy to local network
-npm run node -- --fork <url>  # Fork mainnet for testing
-```
-
-## Documentation
-
-- **[timelock_guide.md](timelock_guide.md)** — Full architecture & design
-- **[contracts/TimelockPayment.sol](contracts/TimelockPayment.sol)** — Full source with NatSpec
-- **[test/TimelockPayment.test.js](test/TimelockPayment.test.js)** — Test suite with 24 tests
-
-## Customization
-
-### Change Timelock Duration
-
-Edit `scripts/deploy.js`:
-```javascript
-const delayPeriod = 3600;  // 1 hour instead of 120 seconds
-```
-
-### Change Multisig Threshold
-
-Edit `scripts/deploy.js`:
-```javascript
-const requiredApprovals = 3;  // 3-of-5 instead of 2-of-3
-const members = [...5 addresses...];
-```
-
-### Add More Test Accounts
-
-Hardhat provides 20 pre-funded accounts. Access via:
-```javascript
-const [deployer, ...signers] = await ethers.getSigners();
-```
-
-## License
-
-MIT - See LICENSE file
-
-## References
-
-- [Solidity Docs](https://docs.soliditylang.org/)
-- [Hardhat Docs](https://hardhat.org/docs)
-- [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts/)
-- [Ethereum Dev Docs](https://ethereum.org/en/developers/docs/)
-
-## Contributing
-
-For improvements, please:
-1. Create a feature branch
-2. Add tests for new functionality
-3. Ensure all tests pass (`npm test`)
-4. Submit a pull request
-
+4. Successful Execution: Wait for the 120-second delay period to finish, then call `executePayment(txId)`. The transaction will succeed, transfer the ETH, and emit the `PaymentReleased` event.
