@@ -22,10 +22,6 @@ This project implements a multi-signature smart contract with the following assi
 * **Development Environment:** Remix IDE
 * **Local Blockchain:** Geth (Go Ethereum) Developer Node
 
-## Repository Structure
-* `contracts/TimelockPayment.sol`: The main smart contract source code, fully documented using NatSpec formatting.
-* `Report.pdf`: The final assignment report containing screenshots of the successful deployment, Geth logs, and Remix execution proofs.
-
 ---
 
 ## Setup & Execution Instructions
@@ -66,3 +62,5 @@ geth --dev --http --http.api eth,web3,personal,net --http.corsdomain "*" --http.
 3. Enforcement Check (Rejection): Attempt to call `executePayment(txId)` immediately. The transaction will correctly revert with the error: "Timelock period not yet expired".
 
 4. Successful Execution: Wait for the 120-second delay period to finish, then call `executePayment(txId)`. The transaction will succeed, transfer the ETH, and emit the `PaymentReleased` event.
+
+
